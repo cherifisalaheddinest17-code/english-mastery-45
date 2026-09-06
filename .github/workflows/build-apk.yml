@@ -283,7 +283,7 @@ jobs:
           
           @Serializable
           data class ClaudeRequest(
-              val model: String = "claude-sonnet-4-6",
+              val model: String = "claude-sonnet-5",
               @SerialName("max_tokens") val maxTokens: Int = 1024,
               val system: String? = null,
               val messages: List<ClaudeMessage>
@@ -716,7 +716,8 @@ jobs:
                           _state.value = _state.value.copy(isAnalyzing = false)
                           advanceSection()
                       } catch (e: Exception) {
-                          _state.value = _state.value.copy(isAnalyzing = false, error = e.message ?: "AI scoring failed")
+                          val detail = e.message?.takeIf { it.isNotBlank() } ?: e.toString()
+                          _state.value = _state.value.copy(isAnalyzing = false, error = "AI scoring failed: $detail")
                       }
                   }
               }

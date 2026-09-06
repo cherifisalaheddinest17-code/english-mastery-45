@@ -3,158 +3,339 @@ name: Build English Mastery 45 APK
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: Build English Mastery 45
     runs-on: ubuntu-latest
+
     steps:
+
+      # ============================================================
+      # 1. CHECKOUT
+      # ============================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ============================================================
+      # 2. SET UP JDK
+      # ============================================================
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
+
+      # ============================================================
+      # 3. ANDROID SDK
+      # ============================================================
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install SDK platform and build-tools
-        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
+
+      # ============================================================
+      # 4. SET UP GRADLE
+      # ============================================================
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
+
+      # ============================================================
+      # 5. RECONSTRUCT PROJECT
+      # ============================================================
       - name: Reconstruct project source files
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          mkdir -p "$(dirname 'app/build.gradle.kts')"
-          cat > 'app/build.gradle.kts' << 'PROJFILE_0_EOF'
-          import java.util.Properties
-          
+
+          # --------------------------------------------------------
+          # ROOT SETTINGS
+          # --------------------------------------------------------
+
+          cat > settings.gradle.kts << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = "EnglishMastery45"
+          include(":app")
+          EOF
+
+
+          # --------------------------------------------------------
+          # ROOT BUILD.GRADLE.KTS
+          # --------------------------------------------------------
+
+          cat > build.gradle.kts << 'EOF'
+          plugins {
+              id("com.android.application") version "8.5.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+              id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24" apply false
+              id("com.google.devtools.ksp") version "1.9.24-1.0.20" apply false
+          }
+          EOF
+
+
+          # --------------------------------------------------------
+          # GRADLE PROPERTIES
+          # --------------------------------------------------------
+
+          cat > gradle.properties << 'EOF'
+          org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
+          EOF
+
+
+          # ========================================================
+          # APP BUILD.GRADLE.KTS
+          # ========================================================
+
+          mkdir -p app
+
+          cat > app/build.gradle.kts << 'EOF'
           plugins {
               id("com.android.application")
               id("org.jetbrains.kotlin.android")
               id("org.jetbrains.kotlin.plugin.serialization")
               id("com.google.devtools.ksp")
           }
-          
-          val anthropicApiKey: String = System.getenv("ANTHROPIC_API_KEY") ?: ""
-          
+
+          val anthropicApiKey: String =
+              System.getenv("ANTHROPIC_API_KEY") ?: ""
+
           android {
               namespace = "com.englishmastery45.app"
               compileSdk = 34
-          
+
               defaultConfig {
                   applicationId = "com.englishmastery45.app"
                   minSdk = 26
                   targetSdk = 34
+
                   versionCode = 1
-                  versionName = "0.1.0-mvp"
-          
-                  buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicApiKey\"")
+                  versionName = "0.1.0"
+
+                  buildConfigField(
+                      "String",
+                      "ANTHROPIC_API_KEY",
+                      "\"$anthropicApiKey\""
+                  )
               }
-          
+
               buildTypes {
                   release {
                       isMinifyEnabled = false
-                      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+                      proguardFiles(
+                          getDefaultProguardFile(
+                              "proguard-android-optimize.txt"
+                          ),
+                          "proguard-rules.pro"
+                      )
                   }
+
                   debug {
                       isMinifyEnabled = false
                   }
               }
-          
+
               buildFeatures {
                   compose = true
                   buildConfig = true
               }
-          
+
               composeOptions {
                   kotlinCompilerExtensionVersion = "1.5.14"
               }
-          
+
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
                   targetCompatibility = JavaVersion.VERSION_17
               }
+
               kotlinOptions {
                   jvmTarget = "17"
               }
-          
+
               packaging {
                   resources {
                       excludes += "/META-INF/{AL2.0,LGPL2.1}"
                   }
               }
           }
-          
+
           dependencies {
+
               implementation("androidx.core:core-ktx:1.13.1")
-              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-              implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
-              implementation("androidx.activity:activity-compose:1.9.1")
-          
-              implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+
+              implementation(
+                  "androidx.lifecycle:lifecycle-runtime-ktx:2.8.4"
+              )
+
+              implementation(
+                  "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4"
+              )
+
+              implementation(
+                  "androidx.activity:activity-compose:1.9.1"
+              )
+
+              implementation(
+                  platform(
+                      "androidx.compose:compose-bom:2024.06.00"
+                  )
+              )
+
               implementation("androidx.compose.ui:ui")
               implementation("androidx.compose.ui:ui-graphics")
-              implementation("androidx.compose.ui:ui-tooling-preview")
-              implementation("androidx.compose.material3:material3")
-              implementation("androidx.navigation:navigation-compose:2.7.7")
-          
-              implementation("androidx.room:room-runtime:2.6.1")
-              implementation("androidx.room:room-ktx:2.6.1")
-              ksp("androidx.room:room-compiler:2.6.1")
-          
-              implementation("com.squareup.retrofit2:retrofit:2.11.0")
-              implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
-              implementation("com.squareup.okhttp3:okhttp:4.12.0")
-              implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-              implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-          
-              debugImplementation("androidx.compose.ui:ui-tooling")
+              implementation(
+                  "androidx.compose.ui:ui-tooling-preview"
+              )
+
+              implementation(
+                  "androidx.compose.material3:material3"
+              )
+
+              implementation(
+                  "androidx.navigation:navigation-compose:2.7.7"
+              )
+
+              // Room
+              implementation(
+                  "androidx.room:room-runtime:2.6.1"
+              )
+
+              implementation(
+                  "androidx.room:room-ktx:2.6.1"
+              )
+
+              ksp(
+                  "androidx.room:room-compiler:2.6.1"
+              )
+
+              // Networking
+              implementation(
+                  "com.squareup.retrofit2:retrofit:2.11.0"
+              )
+
+              implementation(
+                  "com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0"
+              )
+
+              implementation(
+                  "com.squareup.okhttp3:okhttp:4.12.0"
+              )
+
+              implementation(
+                  "com.squareup.okhttp3:logging-interceptor:4.12.0"
+              )
+
+              implementation(
+                  "org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3"
+              )
+
+              implementation(
+                  "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1"
+              )
+
+              debugImplementation(
+                  "androidx.compose.ui:ui-tooling"
+              )
           }
-          
-          PROJFILE_0_EOF
+          EOF
 
-          mkdir -p "$(dirname 'app/proguard-rules.pro')"
-          cat > 'app/proguard-rules.pro' << 'PROJFILE_1_EOF'
-          
-          PROJFILE_1_EOF
 
-          mkdir -p "$(dirname 'app/src/main/AndroidManifest.xml')"
-          cat > 'app/src/main/AndroidManifest.xml' << 'PROJFILE_2_EOF'
+          # ========================================================
+          # PROGUARD
+          # ========================================================
+
+          cat > app/proguard-rules.pro << 'EOF'
+          EOF
+
+
+          # ========================================================
+          # ANDROID MANIFEST
+          # ========================================================
+
+          mkdir -p app/src/main
+
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-          
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.RECORD_AUDIO" />
-          
+
+          <manifest
+              xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission
+                  android:name="android.permission.INTERNET" />
+
+              <uses-permission
+                  android:name="android.permission.RECORD_AUDIO" />
+
               <application
                   android:allowBackup="true"
                   android:label="English Mastery 45"
                   android:icon="@mipmap/ic_launcher"
                   android:roundIcon="@mipmap/ic_launcher_round"
-                  android:theme="@style/Theme.EnglishMastery45"
-                  android:supportsRtl="true">
-          
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.EnglishMastery45">
+
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
                       android:theme="@style/Theme.EnglishMastery45">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          
-          PROJFILE_2_EOF
 
-          mkdir -p "$(dirname 'app/src/main/java/com/englishmastery45/app/MainActivity.kt')"
-          cat > 'app/src/main/java/com/englishmastery45/app/MainActivity.kt' << 'PROJFILE_3_EOF'
+                      <intent-filter>
+
+                          <action
+                              android:name="android.intent.action.MAIN" />
+
+                          <category
+                              android:name="android.intent.category.LAUNCHER" />
+
+                      </intent-filter>
+
+                  </activity>
+
+              </application>
+
+          </manifest>
+          EOF
+
+
+          # ========================================================
+          # MAIN ACTIVITY
+          # ========================================================
+
+          mkdir -p app/src/main/java/com/englishmastery45/app
+
+          cat > app/src/main/java/com/englishmastery45/app/MainActivity.kt << 'EOF'
           package com.englishmastery45.app
-          
+
           import android.os.Bundle
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
@@ -173,98 +354,204 @@ jobs:
           import com.englishmastery45.app.ui.PlacementViewModel
           import com.englishmastery45.app.ui.TestSection
           import com.englishmastery45.app.ui.screens.*
-          
+
           class MainActivity : ComponentActivity() {
-          
+
               private val viewModel: PlacementViewModel by viewModels()
-          
+
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
+
                   setContent {
                       MaterialTheme {
-                          Surface(Modifier.fillMaxSize()) {
+                          Surface(
+                              modifier = Modifier.fillMaxSize()
+                          ) {
                               AppRoot(viewModel)
                           }
                       }
                   }
               }
           }
-          
-          private enum class Screen { SPLASH, ONBOARDING, TEST, RESULTS }
-          
+
+          private enum class Screen {
+              SPLASH,
+              ONBOARDING,
+              TEST,
+              RESULTS
+          }
+
           @Composable
-          private fun AppRoot(viewModel: PlacementViewModel) {
-              var screen by remember { mutableStateOf(Screen.SPLASH) }
+          private fun AppRoot(
+              viewModel: PlacementViewModel
+          ) {
+
+              var screen by remember {
+                  mutableStateOf(Screen.SPLASH)
+              }
+
               val state by viewModel.state.collectAsState()
-          
+
               when (screen) {
-                  Screen.SPLASH -> SplashScreen(onFinished = { screen = Screen.ONBOARDING })
-          
-                  Screen.ONBOARDING -> OnboardingScreen(onContinue = { name ->
-                      viewModel.setName(name)
-                      screen = Screen.TEST
-                  })
-          
+
+                  Screen.SPLASH -> {
+                      SplashScreen(
+                          onFinished = {
+                              screen = Screen.ONBOARDING
+                          }
+                      )
+                  }
+
+                  Screen.ONBOARDING -> {
+                      OnboardingScreen(
+                          onContinue = { name ->
+
+                              viewModel.setName(name)
+
+                              screen = Screen.TEST
+                          }
+                      )
+                  }
+
                   Screen.TEST -> {
+
                       if (state.section == TestSection.DONE) {
+
                           screen = Screen.RESULTS
+
                       } else if (state.isAnalyzing) {
+
                           AnalyzingScreen()
+
                       } else {
+
                           when (state.section) {
-                              TestSection.GRAMMAR, TestSection.VOCABULARY, TestSection.READING, TestSection.LISTENING -> {
-                                  val question = viewModel.currentQuestion()
+
+                              TestSection.GRAMMAR,
+                              TestSection.VOCABULARY,
+                              TestSection.READING,
+                              TestSection.LISTENING -> {
+
+                                  val question =
+                                      viewModel.currentQuestion()
+
                                   if (question != null) {
+
                                       McqQuestionScreen(
-                                          sectionTitle = state.section.name,
+                                          sectionTitle =
+                                              state.section.name,
+
                                           question = question,
-                                          onAnswer = { index -> viewModel.submitMcqAnswer(question, index) }
+
+                                          onAnswer = { index ->
+                                              viewModel.submitMcqAnswer(
+                                                  question,
+                                                  index
+                                              )
+                                          }
                                       )
                                   }
                               }
+
                               TestSection.WRITING -> {
-                                  val prompt = QuestionBank.writingPrompts[state.currentLevel]
-                                      ?: QuestionBank.writingPrompts.values.first()
+
+                                  val prompt =
+                                      QuestionBank
+                                          .writingPrompts[
+                                              state.currentLevel
+                                          ]
+                                          ?: QuestionBank
+                                              .writingPrompts
+                                              .values
+                                              .first()
+
                                   FreeTextScreen(
                                       sectionTitle = "WRITING",
                                       prompt = prompt,
-                                      submitLabel = "Submit writing sample",
-                                      isAnalyzing = state.isAnalyzing,
+                                      submitLabel =
+                                          "Submit writing sample",
+                                      isAnalyzing =
+                                          state.isAnalyzing,
                                       error = state.error,
-                                      onSubmit = { text -> viewModel.submitAiScoredAnswer(TestSection.WRITING, text) }
+
+                                      onSubmit = { text ->
+
+                                          viewModel
+                                              .submitAiScoredAnswer(
+                                                  TestSection.WRITING,
+                                                  text
+                                              )
+                                      }
                                   )
                               }
+
                               TestSection.SPEAKING -> {
-                                  // MVP: text transcript input stands in for on-device SpeechRecognizer output.
-                                  // Wire this to android.speech.SpeechRecognizer in the next iteration.
-                                  val prompt = QuestionBank.speakingPrompts[state.currentLevel]
-                                      ?: QuestionBank.speakingPrompts.values.first()
+
+                                  val prompt =
+                                      QuestionBank
+                                          .speakingPrompts[
+                                              state.currentLevel
+                                          ]
+                                          ?: QuestionBank
+                                              .speakingPrompts
+                                              .values
+                                              .first()
+
                                   FreeTextScreen(
-                                      sectionTitle = "SPEAKING (type what you would say for now)",
+                                      sectionTitle =
+                                          "SPEAKING",
+
                                       prompt = prompt,
-                                      submitLabel = "Submit speaking sample",
-                                      isAnalyzing = state.isAnalyzing,
+
+                                      submitLabel =
+                                          "Submit speaking sample",
+
+                                      isAnalyzing =
+                                          state.isAnalyzing,
+
                                       error = state.error,
-                                      onSubmit = { text -> viewModel.submitAiScoredAnswer(TestSection.SPEAKING, text) }
+
+                                      onSubmit = { text ->
+
+                                          viewModel
+                                              .submitAiScoredAnswer(
+                                                  TestSection.SPEAKING,
+                                                  text
+                                              )
+                                      }
                                   )
                               }
+
                               else -> {}
                           }
                       }
                   }
-          
-                  Screen.RESULTS -> ResultsScreen(state = state, onRestart = {
-                      screen = Screen.ONBOARDING
-                  })
+
+                  Screen.RESULTS -> {
+
+                      ResultsScreen(
+                          state = state,
+
+                          onRestart = {
+                              screen = Screen.ONBOARDING
+                          }
+                      )
+                  }
               }
           }
-          
-          PROJFILE_3_EOF
+          EOF
 
-          mkdir -p "$(dirname 'app/src/main/java/com/englishmastery45/app/data/AnthropicApi.kt')"
-          cat > 'app/src/main/java/com/englishmastery45/app/data/AnthropicApi.kt' << 'PROJFILE_4_EOF'
+
+          # ========================================================
+          # ANTHROPIC API
+          # NETWORK ON MAIN THREAD FIX
+          # ========================================================
+
+          mkdir -p app/src/main/java/com/englishmastery45/app/data
+
+          cat > app/src/main/java/com/englishmastery45/app/data/AnthropicApi.kt << 'EOF'
           package com.englishmastery45.app.data
-          
+
           import com.englishmastery45.app.BuildConfig
           import kotlinx.coroutines.Dispatchers
           import kotlinx.coroutines.withContext
@@ -276,90 +563,175 @@ jobs:
           import okhttp3.Request
           import okhttp3.RequestBody.Companion.toRequestBody
           import java.util.concurrent.TimeUnit
-          
-          /**
-           * Thin, swappable client for the Claude Messages API.
-           * Kept deliberately separate from the rest of the app so the AI provider
-           * can be replaced later without touching scoring/UI code.
-           */
+
           @Serializable
-          data class ClaudeMessage(val role: String, val content: String)
-          
+          data class ClaudeMessage(
+              val role: String,
+              val content: String
+          )
+
           @Serializable
           data class ClaudeRequest(
               val model: String = "claude-sonnet-5",
-              @SerialName("max_tokens") val maxTokens: Int = 1024,
+              @SerialName("max_tokens")
+              val maxTokens: Int = 1024,
               val system: String? = null,
               val messages: List<ClaudeMessage>
           )
-          
+
           @Serializable
-          data class ClaudeContentBlock(val type: String, val text: String? = null)
-          
+          data class ClaudeContentBlock(
+              val type: String,
+              val text: String? = null
+          )
+
           @Serializable
-          data class ClaudeResponse(val content: List<ClaudeContentBlock>)
-          
+          data class ClaudeResponse(
+              val content: List<ClaudeContentBlock>
+          )
+
           class AnthropicClient(
-              private val apiKey: String = BuildConfig.ANTHROPIC_API_KEY
+              private val apiKey: String =
+                  BuildConfig.ANTHROPIC_API_KEY
           ) {
-              private val json = Json { ignoreUnknownKeys = true }
-          
-              private val client = OkHttpClient.Builder()
-                  .connectTimeout(30, TimeUnit.SECONDS)
-                  .readTimeout(60, TimeUnit.SECONDS)
-                  .build()
-          
-              /**
-               * Sends a single-turn prompt to Claude and returns the raw text reply.
-               * Throws if the API key is missing/empty or the call fails.
-               */
-              suspend fun complete(systemPrompt: String, userPrompt: String): String = withContext(Dispatchers.IO) {
-                  check(apiKey.isNotBlank()) {
-                      "ANTHROPIC_API_KEY is empty. Set it as a GitHub Actions secret before building."
-                  }
-          
-                  val requestBody = json.encodeToString(
-                      ClaudeRequest.serializer(),
-                      ClaudeRequest(
-                          system = systemPrompt,
-                          messages = listOf(ClaudeMessage(role = "user", content = userPrompt))
+
+              private val json = Json {
+                  ignoreUnknownKeys = true
+              }
+
+              private val client =
+                  OkHttpClient.Builder()
+                      .connectTimeout(
+                          30,
+                          TimeUnit.SECONDS
                       )
-                  )
-          
-                  val request = Request.Builder()
-                      .url("https://api.anthropic.com/v1/messages")
-                      .addHeader("x-api-key", apiKey)
-                      .addHeader("anthropic-version", "2023-06-01")
-                      .addHeader("content-type", "application/json")
-                      .post(requestBody.toRequestBody("application/json".toMediaType()))
+                      .readTimeout(
+                          60,
+                          TimeUnit.SECONDS
+                      )
+                      .writeTimeout(
+                          60,
+                          TimeUnit.SECONDS
+                      )
                       .build()
-          
-                  client.newCall(request).execute().use { response ->
-                      val bodyString = response.body?.string().orEmpty()
-                      if (!response.isSuccessful) {
-                          throw IllegalStateException("Claude API error ${response.code}: $bodyString")
-                      }
-                      val parsed = json.decodeFromString(ClaudeResponse.serializer(), bodyString)
-                      return@withContext parsed.content.firstOrNull { it.type == "text" }?.text.orEmpty()
+
+
+              /**
+               * IMPORTANT:
+               *
+               * The network request is executed inside
+               * Dispatchers.IO.
+               *
+               * This fixes:
+               *
+               * android.os.NetworkOnMainThreadException
+               */
+              suspend fun complete(
+                  systemPrompt: String,
+                  userPrompt: String
+              ): String = withContext(Dispatchers.IO) {
+
+                  check(apiKey.isNotBlank()) {
+                      "ANTHROPIC_API_KEY is empty. " +
+                          "Add ANTHROPIC_API_KEY to GitHub Secrets."
                   }
+
+                  val requestBody =
+                      json.encodeToString(
+                          ClaudeRequest.serializer(),
+
+                          ClaudeRequest(
+                              system = systemPrompt,
+
+                              messages =
+                                  listOf(
+                                      ClaudeMessage(
+                                          role = "user",
+                                          content = userPrompt
+                                      )
+                                  )
+                          )
+                      )
+
+                  val request =
+                      Request.Builder()
+                          .url(
+                              "https://api.anthropic.com/v1/messages"
+                          )
+                          .addHeader(
+                              "x-api-key",
+                              apiKey
+                          )
+                          .addHeader(
+                              "anthropic-version",
+                              "2023-06-01"
+                          )
+                          .addHeader(
+                              "content-type",
+                              "application/json"
+                          )
+                          .post(
+                              requestBody.toRequestBody(
+                                  "application/json"
+                                      .toMediaType()
+                              )
+                          )
+                          .build()
+
+                  client
+                      .newCall(request)
+                      .execute()
+                      .use { response ->
+
+                          val bodyString =
+                              response.body
+                                  ?.string()
+                                  .orEmpty()
+
+                          if (!response.isSuccessful) {
+
+                              throw IllegalStateException(
+                                  "Claude API error " +
+                                      "${response.code}: " +
+                                      bodyString
+                              )
+                          }
+
+                          val parsed =
+                              json.decodeFromString(
+                                  ClaudeResponse.serializer(),
+                                  bodyString
+                              )
+
+                          parsed.content
+                              .firstOrNull {
+                                  it.type == "text"
+                              }
+                              ?.text
+                              .orEmpty()
+                      }
               }
           }
-          
-          PROJFILE_4_EOF
+          EOF
 
-          mkdir -p "$(dirname 'app/src/main/java/com/englishmastery45/app/data/Database.kt')"
-          cat > 'app/src/main/java/com/englishmastery45/app/data/Database.kt' << 'PROJFILE_5_EOF'
+
+          # ========================================================
+          # DATABASE
+          # ========================================================
+
+          cat > app/src/main/java/com/englishmastery45/app/data/Database.kt << 'EOF'
           package com.englishmastery45.app.data
-          
+
           import android.content.Context
           import androidx.room.*
-          
-          // ---------- Entities ----------
-          
+
           @Entity(tableName = "learner_profile")
           data class LearnerProfile(
-              @PrimaryKey val id: Int = 1,
+              @PrimaryKey
+              val id: Int = 1,
+
               val name: String,
+
               val overallLevel: String = "",
               val grammarLevel: String = "",
               val vocabularyLevel: String = "",
@@ -367,268 +739,674 @@ jobs:
               val listeningLevel: String = "",
               val writingLevel: String = "",
               val speakingLevel: String = "",
+
               val strengths: String = "",
               val weaknesses: String = "",
+
               val placementCompletedAt: Long = 0L
           )
-          
+
+
           @Entity(tableName = "placement_answers")
           data class PlacementAnswer(
-              @PrimaryKey(autoGenerate = true) val id: Long = 0,
-              val skill: String,          // grammar, vocabulary, reading, listening, writing, speaking
+
+              @PrimaryKey(autoGenerate = true)
+              val id: Long = 0,
+
+              val skill: String,
+
               val questionId: String,
-              val difficulty: String,     // A1, A2, B1, B2
+
+              val difficulty: String,
+
               val userResponse: String,
-              val isCorrect: Boolean?,    // null for writing/speaking (AI-scored, not right/wrong)
+
+              val isCorrect: Boolean?,
+
               val aiScoreJson: String? = null
           )
-          
-          // ---------- DAO ----------
-          
+
+
           @Dao
           interface PlacementDao {
-              @Insert(onConflict = OnConflictStrategy.REPLACE)
-              suspend fun saveProfile(profile: LearnerProfile)
-          
-              @Query("SELECT * FROM learner_profile WHERE id = 1 LIMIT 1")
-              suspend fun getProfile(): LearnerProfile?
-          
+
+              @Insert(
+                  onConflict =
+                      OnConflictStrategy.REPLACE
+              )
+              suspend fun saveProfile(
+                  profile: LearnerProfile
+              )
+
+              @Query(
+                  "SELECT * FROM learner_profile " +
+                      "WHERE id = 1 LIMIT 1"
+              )
+              suspend fun getProfile():
+                  LearnerProfile?
+
               @Insert
-              suspend fun insertAnswer(answer: PlacementAnswer): Long
-          
-              @Query("SELECT * FROM placement_answers")
-              suspend fun getAllAnswers(): List<PlacementAnswer>
-          
-              @Query("DELETE FROM placement_answers")
+              suspend fun insertAnswer(
+                  answer: PlacementAnswer
+              ): Long
+
+              @Query(
+                  "SELECT * FROM placement_answers"
+              )
+              suspend fun getAllAnswers():
+                  List<PlacementAnswer>
+
+              @Query(
+                  "DELETE FROM placement_answers"
+              )
               suspend fun clearAnswers()
           }
-          
-          // ---------- Database ----------
-          
-          @Database(entities = [LearnerProfile::class, PlacementAnswer::class], version = 1, exportSchema = false)
-          abstract class AppDatabase : RoomDatabase() {
-              abstract fun placementDao(): PlacementDao
-          
+
+
+          @Database(
+              entities = [
+                  LearnerProfile::class,
+                  PlacementAnswer::class
+              ],
+              version = 1,
+              exportSchema = false
+          )
+          abstract class AppDatabase :
+              RoomDatabase() {
+
+              abstract fun placementDao():
+                  PlacementDao
+
               companion object {
-                  @Volatile private var INSTANCE: AppDatabase? = null
-          
-                  fun getInstance(context: Context): AppDatabase =
-                      INSTANCE ?: synchronized(this) {
-                          INSTANCE ?: Room.databaseBuilder(
-                              context.applicationContext,
-                              AppDatabase::class.java,
-                              "english_mastery_45.db"
-                          ).build().also { INSTANCE = it }
-                      }
+
+                  @Volatile
+                  private var INSTANCE:
+                      AppDatabase? = null
+
+                  fun getInstance(
+                      context: Context
+                  ): AppDatabase =
+                      INSTANCE
+                          ?: synchronized(this) {
+
+                              INSTANCE
+                                  ?: Room.databaseBuilder(
+                                      context.applicationContext,
+                                      AppDatabase::class.java,
+                                      "english_mastery_45.db"
+                                  )
+                                  .build()
+                                  .also {
+                                      INSTANCE = it
+                                  }
+                          }
               }
           }
-          
-          PROJFILE_5_EOF
+          EOF
 
-          mkdir -p "$(dirname 'app/src/main/java/com/englishmastery45/app/data/QuestionBank.kt')"
-          cat > 'app/src/main/java/com/englishmastery45/app/data/QuestionBank.kt' << 'PROJFILE_6_EOF'
+
+          # ========================================================
+          # QUESTION BANK
+          # ========================================================
+
+          cat > app/src/main/java/com/englishmastery45/app/data/QuestionBank.kt << 'EOF'
           package com.englishmastery45.app.data
-          
-          /**
-           * MVP question bank for the deterministic sections of the placement test
-           * (Grammar, Vocabulary, Reading, Listening). Small on purpose for the MVP —
-           * expand this per-skill as the full 45-day content system is built out.
-           */
-          
-          enum class CefrLevel(val order: Int) { A1(0), A2(1), B1(2), B2(3) }
-          
-          data class McqQuestion(
-              val id: String,
-              val level: CefrLevel,
-              val prompt: String,
-              val options: List<String>,
-              val correctIndex: Int,
-              val passage: String? = null // used for Reading/Listening comprehension
-          )
-          
-          object QuestionBank {
-          
-              val grammar = listOf(
-                  McqQuestion("g_a1_1", CefrLevel.A1, "She ___ a student.", listOf("is", "are", "am", "be"), 0),
-                  McqQuestion("g_a2_1", CefrLevel.A2, "Yesterday, I ___ to the market.", listOf("go", "went", "gone", "going"), 1),
-                  McqQuestion("g_b1_1", CefrLevel.B1, "If I ___ more time, I would learn French too.", listOf("have", "had", "will have", "having"), 1),
-                  McqQuestion("g_b1_2", CefrLevel.B1, "The report ___ by the manager yesterday.", listOf("wrote", "was written", "is writing", "writes"), 1),
-                  McqQuestion("g_b2_1", CefrLevel.B2, "Hardly ___ the meeting started when the fire alarm rang.", listOf("had", "did", "has", "was"), 0)
-              )
-          
-              val vocabulary = listOf(
-                  McqQuestion("v_a1_1", CefrLevel.A1, "I need a reliable car because I ___ a lot.", listOf("travel", "traveling", "travels", "traveled"), 0),
-                  McqQuestion("v_a2_1", CefrLevel.A2, "Choose the correct meaning: 'to make a decision'", listOf("to decide", "to cook", "to travel", "to relax"), 0),
-                  McqQuestion("v_b1_1", CefrLevel.B1, "He finally decided to give up smoking — 'give up' means:", listOf("to start", "to stop", "to enjoy", "to try"), 1),
-                  McqQuestion("v_b2_1", CefrLevel.B2, "Their negotiation reached a stalemate. 'Stalemate' means:", listOf("a quick agreement", "a deadlock", "a celebration", "a mistake"), 1)
-              )
-          
-              val reading = listOf(
-                  McqQuestion(
-                      "r_a2_1", CefrLevel.A2,
-                      "What time does the market close on Sundays?",
-                      listOf("6 PM", "8 PM", "10 PM", "It is closed"), 0,
-                      passage = "The Green Market is open every day from 8 AM to 8 PM, except Sundays, when it closes early at 6 PM."
-                  ),
-                  McqQuestion(
-                      "r_b1_1", CefrLevel.B1,
-                      "What is the author's main concern?",
-                      listOf("Traffic noise", "Rising rent prices", "Air pollution", "Lack of parks"), 1,
-                      passage = "Many young families are leaving the city center, not because they dislike it, but because rents have doubled in five years while wages have barely moved."
-                  )
-              )
-          
-              val listening = listOf(
-                  McqQuestion(
-                      "l_a1_1", CefrLevel.A1,
-                      "(Listen) What is the woman's name?",
-                      listOf("Sara", "Sarah", "Clara", "Laura"), 1,
-                      passage = "Hello, my name is Sarah. Nice to meet you."
-                  ),
-                  McqQuestion(
-                      "l_a2_1", CefrLevel.A2,
-                      "(Listen) Where are they meeting?",
-                      listOf("At the station", "At the cafe", "At the office", "At school"), 1,
-                      passage = "Let's meet at the cafe near the station at seven, is that okay for you?"
-                  )
-              )
-          
-              val writingPrompts = mapOf(
-                  CefrLevel.A2 to "Write 3-4 sentences about your last holiday.",
-                  CefrLevel.B1 to "Write a short paragraph (5-6 sentences) about a problem in your city and a possible solution."
-              )
-          
-              val speakingPrompts = mapOf(
-                  CefrLevel.A2 to "Talk for 20-30 seconds: introduce yourself and your daily routine.",
-                  CefrLevel.B1 to "Talk for 30-45 seconds: describe your job or studies and why you chose them."
-              )
-          }
-          
-          PROJFILE_6_EOF
 
-          mkdir -p "$(dirname 'app/src/main/java/com/englishmastery45/app/domain/PlacementRepository.kt')"
-          cat > 'app/src/main/java/com/englishmastery45/app/domain/PlacementRepository.kt' << 'PROJFILE_7_EOF'
+          enum class CefrLevel(
+              val order: Int
+          ) {
+              A1(0),
+              A2(1),
+              B1(2),
+              B2(3)
+          }
+
+
+          data class McqQuestion(
+
+              val id: String,
+
+              val level: CefrLevel,
+
+              val prompt: String,
+
+              val options: List<String>,
+
+              val correctIndex: Int,
+
+              val passage: String? = null
+          )
+
+
+          object QuestionBank {
+
+              val grammar = listOf(
+
+                  McqQuestion(
+                      "g_a1_1",
+                      CefrLevel.A1,
+                      "She ___ a student.",
+                      listOf(
+                          "is",
+                          "are",
+                          "am",
+                          "be"
+                      ),
+                      0
+                  ),
+
+                  McqQuestion(
+                      "g_a2_1",
+                      CefrLevel.A2,
+                      "Yesterday, I ___ to the market.",
+                      listOf(
+                          "go",
+                          "went",
+                          "gone",
+                          "going"
+                      ),
+                      1
+                  ),
+
+                  McqQuestion(
+                      "g_b1_1",
+                      CefrLevel.B1,
+                      "If I ___ more time, I would learn French too.",
+                      listOf(
+                          "have",
+                          "had",
+                          "will have",
+                          "having"
+                      ),
+                      1
+                  ),
+
+                  McqQuestion(
+                      "g_b1_2",
+                      CefrLevel.B1,
+                      "The report ___ by the manager yesterday.",
+                      listOf(
+                          "wrote",
+                          "was written",
+                          "is writing",
+                          "writes"
+                      ),
+                      1
+                  ),
+
+                  McqQuestion(
+                      "g_b2_1",
+                      CefrLevel.B2,
+                      "Hardly ___ the meeting started when the fire alarm rang.",
+                      listOf(
+                          "had",
+                          "did",
+                          "has",
+                          "was"
+                      ),
+                      0
+                  )
+              )
+
+
+              val vocabulary = listOf(
+
+                  McqQuestion(
+                      "v_a1_1",
+                      CefrLevel.A1,
+                      "I need a reliable car because I ___ a lot.",
+                      listOf(
+                          "travel",
+                          "traveling",
+                          "travels",
+                          "traveled"
+                      ),
+                      0
+                  ),
+
+                  McqQuestion(
+                      "v_a2_1",
+                      CefrLevel.A2,
+                      "Choose the correct meaning: 'to make a decision'",
+                      listOf(
+                          "to decide",
+                          "to cook",
+                          "to travel",
+                          "to relax"
+                      ),
+                      0
+                  ),
+
+                  McqQuestion(
+                      "v_b1_1",
+                      CefrLevel.B1,
+                      "He finally decided to give up smoking — 'give up' means:",
+                      listOf(
+                          "to start",
+                          "to stop",
+                          "to enjoy",
+                          "to try"
+                      ),
+                      1
+                  ),
+
+                  McqQuestion(
+                      "v_b2_1",
+                      CefrLevel.B2,
+                      "Their negotiation reached a stalemate. 'Stalemate' means:",
+                      listOf(
+                          "a quick agreement",
+                          "a deadlock",
+                          "a celebration",
+                          "a mistake"
+                      ),
+                      1
+                  )
+              )
+
+
+              val reading = listOf(
+
+                  McqQuestion(
+                      "r_a2_1",
+                      CefrLevel.A2,
+                      "What time does the market close on Sundays?",
+                      listOf(
+                          "6 PM",
+                          "8 PM",
+                          "10 PM",
+                          "It is closed"
+                      ),
+                      0,
+
+                      passage =
+                          "The Green Market is open every day " +
+                          "from 8 AM to 8 PM, except Sundays, " +
+                          "when it closes early at 6 PM."
+                  ),
+
+                  McqQuestion(
+                      "r_b1_1",
+                      CefrLevel.B1,
+                      "What is the author's main concern?",
+                      listOf(
+                          "Traffic noise",
+                          "Rising rent prices",
+                          "Air pollution",
+                          "Lack of parks"
+                      ),
+                      1,
+
+                      passage =
+                          "Many young families are leaving the city " +
+                          "center, not because they dislike it, " +
+                          "but because rents have doubled in five " +
+                          "years while wages have barely moved."
+                  )
+              )
+
+
+              val listening = listOf(
+
+                  McqQuestion(
+                      "l_a1_1",
+                      CefrLevel.A1,
+                      "(Listen) What is the woman's name?",
+                      listOf(
+                          "Sara",
+                          "Sarah",
+                          "Clara",
+                          "Laura"
+                      ),
+                      1,
+
+                      passage =
+                          "Hello, my name is Sarah. Nice to meet you."
+                  ),
+
+                  McqQuestion(
+                      "l_a2_1",
+                      CefrLevel.A2,
+                      "(Listen) Where are they meeting?",
+                      listOf(
+                          "At the station",
+                          "At the cafe",
+                          "At the office",
+                          "At school"
+                      ),
+                      1,
+
+                      passage =
+                          "Let's meet at the cafe near the station " +
+                          "at seven, is that okay for you?"
+                  )
+              )
+
+
+              val writingPrompts =
+                  mapOf(
+
+                      CefrLevel.A2 to
+                          "Write 3-4 sentences about your last holiday.",
+
+                      CefrLevel.B1 to
+                          "Write a short paragraph (5-6 sentences) " +
+                          "about a problem in your city and a possible solution."
+                  )
+
+
+              val speakingPrompts =
+                  mapOf(
+
+                      CefrLevel.A2 to
+                          "Talk for 20-30 seconds: introduce yourself " +
+                          "and your daily routine.",
+
+                      CefrLevel.B1 to
+                          "Talk for 30-45 seconds: describe your job " +
+                          "or studies and why you chose them."
+                  )
+          }
+          EOF
+
+
+          # ========================================================
+          # PLACEMENT REPOSITORY
+          # ========================================================
+
+          mkdir -p app/src/main/java/com/englishmastery45/app/domain
+
+          cat > app/src/main/java/com/englishmastery45/app/domain/PlacementRepository.kt << 'EOF'
           package com.englishmastery45.app.domain
-          
+
           import com.englishmastery45.app.data.*
           import kotlinx.serialization.Serializable
           import kotlinx.serialization.json.Json
-          
+
           @Serializable
           data class AiSkillScore(
-              val level: String,      // "A1".."B2"
-              val summary: String,    // 1-2 sentence explanation
-              val mistakes: List<String> = emptyList()
-          )
-          
-          /**
-           * Coordinates: local deterministic scoring (grammar/vocab/reading/listening)
-           * + AI scoring (writing/speaking) + persistence.
-           */
-          class PlacementRepository(
-              private val db: AppDatabase,
-              private val ai: AnthropicClient = AnthropicClient()
-          ) {
-              private val json = Json { ignoreUnknownKeys = true }
-          
-              suspend fun recordAnswer(answer: PlacementAnswer) {
-                  db.placementDao().insertAnswer(answer)
-              }
-          
-              /** Sends a free-text Writing or Speaking-transcript sample to Claude for CEFR scoring. */
-              suspend fun scoreWithAi(skill: String, targetLevelHint: CefrLevel, userText: String): AiSkillScore {
-                  val system = """
-                      You are a CEFR-aligned English examiner. Score the learner's $skill sample.
-                      Base your judgment strictly on CEFR descriptors (A1, A2, B1, B2 only).
-                      Respond ONLY with compact JSON, no prose, no markdown fences, in exactly this shape:
-                      {"level":"A1|A2|B1|B2","summary":"one or two sentence explanation","mistakes":["short mistake 1","short mistake 2"]}
-                  """.trimIndent()
-          
-                  val userPrompt = """
-                      Learner's approximate level from other sections: ${targetLevelHint.name}
-                      $skill sample:
-                      "$userText"
-                  """.trimIndent()
-          
-                  val raw = ai.complete(system, userPrompt)
-                  val cleaned = raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-                  return json.decodeFromString(AiSkillScore.serializer(), cleaned)
-              }
-          
-              suspend fun saveProfile(profile: LearnerProfile) = db.placementDao().saveProfile(profile)
-          
-              suspend fun getProfile(): LearnerProfile? = db.placementDao().getProfile()
-          
-              suspend fun getAllAnswers(): List<PlacementAnswer> = db.placementDao().getAllAnswers()
-          
-              suspend fun resetPlacement() = db.placementDao().clearAnswers()
-          }
-          
-          PROJFILE_7_EOF
 
-          mkdir -p "$(dirname 'app/src/main/java/com/englishmastery45/app/domain/ScoringEngine.kt')"
-          cat > 'app/src/main/java/com/englishmastery45/app/domain/ScoringEngine.kt' << 'PROJFILE_8_EOF'
+              val level: String,
+
+              val summary: String,
+
+              val mistakes: List<String> =
+                  emptyList()
+          )
+
+
+          class PlacementRepository(
+
+              private val db: AppDatabase,
+
+              private val ai: AnthropicClient =
+                  AnthropicClient()
+          ) {
+
+              private val json =
+                  Json {
+                      ignoreUnknownKeys = true
+                  }
+
+
+              suspend fun recordAnswer(
+                  answer: PlacementAnswer
+              ) {
+                  db.placementDao()
+                      .insertAnswer(answer)
+              }
+
+
+              suspend fun scoreWithAi(
+                  skill: String,
+                  targetLevelHint: CefrLevel,
+                  userText: String
+              ): AiSkillScore {
+
+                  val system =
+                      """
+                      You are a CEFR-aligned English examiner.
+
+                      Score the learner's $skill sample.
+
+                      Base your judgment strictly on CEFR
+                      descriptors.
+
+                      Use only:
+                      A1, A2, B1, B2.
+
+                      Respond ONLY with compact JSON.
+
+                      Do not use markdown.
+
+                      Exact format:
+
+                      {
+                        "level":"A1",
+                        "summary":"one or two sentence explanation",
+                        "mistakes":[]
+                      }
+                      """.trimIndent()
+
+
+                  val userPrompt =
+                      """
+                      Learner's approximate level:
+                      ${targetLevelHint.name}
+
+                      Skill:
+                      $skill
+
+                      Learner sample:
+                      "$userText"
+                      """.trimIndent()
+
+
+                  val raw =
+                      ai.complete(
+                          system,
+                          userPrompt
+                      )
+
+
+                  val cleaned =
+                      raw
+                          .trim()
+                          .removePrefix("```json")
+                          .removePrefix("```")
+                          .removeSuffix("```")
+                          .trim()
+
+
+                  return json.decodeFromString(
+                      AiSkillScore.serializer(),
+                      cleaned
+                  )
+              }
+
+
+              suspend fun saveProfile(
+                  profile: LearnerProfile
+              ) =
+                  db.placementDao()
+                      .saveProfile(profile)
+
+
+              suspend fun getProfile():
+                  LearnerProfile? =
+                  db.placementDao()
+                      .getProfile()
+
+
+              suspend fun getAllAnswers():
+                  List<PlacementAnswer> =
+                  db.placementDao()
+                      .getAllAnswers()
+
+
+              suspend fun resetPlacement() =
+                  db.placementDao()
+                      .clearAnswers()
+          }
+          EOF
+
+
+          # ========================================================
+          # SCORING ENGINE
+          # ========================================================
+
+          cat > app/src/main/java/com/englishmastery45/app/domain/ScoringEngine.kt << 'EOF'
           package com.englishmastery45.app.domain
-          
+
           import com.englishmastery45.app.data.CefrLevel
           import com.englishmastery45.app.data.PlacementAnswer
-          
-          /**
-           * Deterministic, rule-based CEFR mapping for Grammar/Vocabulary/Reading/Listening.
-           * Kept rule-based (not AI-guessed) so the level estimate is explainable and consistent,
-           * per the project requirement that CEFR scoring rest on clear descriptors, not free AI judgment.
-           */
+
           object ScoringEngine {
-          
-              /**
-               * Adaptive step logic used while the test is running: start at A2/B1,
-               * move one level up on a correct answer, one level down on an incorrect one.
-               */
-              fun nextLevel(current: CefrLevel, wasCorrect: Boolean): CefrLevel {
-                  val delta = if (wasCorrect) 1 else -1
-                  val newOrder = (current.order + delta).coerceIn(0, CefrLevel.entries.size - 1)
-                  return CefrLevel.entries[newOrder]
+
+              fun nextLevel(
+                  current: CefrLevel,
+                  wasCorrect: Boolean
+              ): CefrLevel {
+
+                  val delta =
+                      if (wasCorrect) 1 else -1
+
+                  val newOrder =
+                      (
+                          current.order + delta
+                      ).coerceIn(
+                          0,
+                          CefrLevel.entries.size - 1
+                      )
+
+                  return CefrLevel
+                      .entries[newOrder]
               }
-          
-              /** Given all answers for one skill, estimate the CEFR level for that skill. */
-              fun estimateSkillLevel(answers: List<PlacementAnswer>): CefrLevel {
-                  if (answers.isEmpty()) return CefrLevel.A1
-                  // Weighted by difficulty: correct answers at a higher level count more.
-                  val correctByLevel = answers
-                      .filter { it.isCorrect == true }
-                      .map { CefrLevel.valueOf(it.difficulty) }
-          
-                  val highest = correctByLevel.maxByOrNull { it.order } ?: CefrLevel.A1
-          
-                  // Require at least half of the questions at that level to be correct
-                  // to avoid a single lucky guess inflating the estimate.
-                  val atHighest = answers.filter { CefrLevel.valueOf(it.difficulty) == highest }
-                  val correctAtHighest = atHighest.count { it.isCorrect == true }
-                  return if (atHighest.isEmpty() || correctAtHighest * 2 >= atHighest.size) highest
-                  else CefrLevel.entries[(highest.order - 1).coerceAtLeast(0)]
+
+
+              fun estimateSkillLevel(
+                  answers: List<PlacementAnswer>
+              ): CefrLevel {
+
+                  if (answers.isEmpty())
+                      return CefrLevel.A1
+
+                  val correctByLevel =
+                      answers
+                          .filter {
+                              it.isCorrect == true
+                          }
+                          .map {
+                              CefrLevel.valueOf(
+                                  it.difficulty
+                              )
+                          }
+
+                  val highest =
+                      correctByLevel.maxByOrNull {
+                          it.order
+                      } ?: CefrLevel.A1
+
+
+                  val atHighest =
+                      answers.filter {
+                          CefrLevel.valueOf(
+                              it.difficulty
+                          ) == highest
+                      }
+
+
+                  val correctAtHighest =
+                      atHighest.count {
+                          it.isCorrect == true
+                      }
+
+
+                  return if (
+                      atHighest.isEmpty() ||
+                      correctAtHighest * 2 >=
+                      atHighest.size
+                  ) {
+
+                      highest
+
+                  } else {
+
+                      CefrLevel.entries[
+                          (highest.order - 1)
+                              .coerceAtLeast(0)
+                      ]
+                  }
               }
-          
-              /** Simple overall level = rounded average of the six per-skill orders. */
-              fun estimateOverallLevel(skillLevels: List<CefrLevel>): CefrLevel {
-                  if (skillLevels.isEmpty()) return CefrLevel.A1
-                  val avgOrder = skillLevels.map { it.order }.average()
-                  return CefrLevel.entries[Math.round(avgOrder).toInt().coerceIn(0, CefrLevel.entries.size - 1)]
+
+
+              fun estimateOverallLevel(
+                  skillLevels: List<CefrLevel>
+              ): CefrLevel {
+
+                  if (skillLevels.isEmpty())
+                      return CefrLevel.A1
+
+                  val avgOrder =
+                      skillLevels
+                          .map { it.order }
+                          .average()
+
+                  return CefrLevel.entries[
+                      Math.round(avgOrder)
+                          .toInt()
+                          .coerceIn(
+                              0,
+                              CefrLevel.entries.size - 1
+                          )
+                  ]
               }
-          
-              fun strengthsAndWeaknesses(skillScores: Map<String, CefrLevel>): Pair<List<String>, List<String>> {
-                  val overallOrder = skillScores.values.map { it.order }.average()
-                  val strengths = skillScores.filter { it.value.order > overallOrder }.keys.toList()
-                  val weaknesses = skillScores.filter { it.value.order < overallOrder }.keys.toList()
+
+
+              fun strengthsAndWeaknesses(
+                  skillScores:
+                      Map<String, CefrLevel>
+              ): Pair<List<String>, List<String>> {
+
+                  val overallOrder =
+                      skillScores
+                          .values
+                          .map { it.order }
+                          .average()
+
+                  val strengths =
+                      skillScores
+                          .filter {
+                              it.value.order >
+                                  overallOrder
+                          }
+                          .keys
+                          .toList()
+
+                  val weaknesses =
+                      skillScores
+                          .filter {
+                              it.value.order <
+                                  overallOrder
+                          }
+                          .keys
+                          .toList()
+
                   return strengths to weaknesses
               }
           }
-          
-          PROJFILE_8_EOF
+          EOF
 
-          mkdir -p "$(dirname 'app/src/main/java/com/englishmastery45/app/ui/PlacementViewModel.kt')"
-          cat > 'app/src/main/java/com/englishmastery45/app/ui/PlacementViewModel.kt' << 'PROJFILE_9_EOF'
+
+          # ========================================================
+          # VIEW MODEL
+          # ========================================================
+
+          mkdir -p app/src/main/java/com/englishmastery45/app/ui
+
+          cat > app/src/main/java/com/englishmastery45/app/ui/PlacementViewModel.kt << 'EOF'
           package com.englishmastery45.app.ui
-          
+
           import android.app.Application
           import androidx.lifecycle.AndroidViewModel
           import androidx.lifecycle.viewModelScope
@@ -638,408 +1416,232 @@ jobs:
           import kotlinx.coroutines.flow.MutableStateFlow
           import kotlinx.coroutines.flow.StateFlow
           import kotlinx.coroutines.launch
-          
-          enum class TestSection { GRAMMAR, VOCABULARY, READING, LISTENING, WRITING, SPEAKING, DONE }
-          
+
+          enum class TestSection {
+              GRAMMAR,
+              VOCABULARY,
+              READING,
+              LISTENING,
+              WRITING,
+              SPEAKING,
+              DONE
+          }
+
+
           data class PlacementUiState(
+
               val userName: String = "",
-              val section: TestSection = TestSection.GRAMMAR,
-              val currentLevel: CefrLevel = CefrLevel.A2,   // adaptive pointer within the current section
+
+              val section: TestSection =
+                  TestSection.GRAMMAR,
+
+              val currentLevel: CefrLevel =
+                  CefrLevel.A2,
+
               val questionIndexInSection: Int = 0,
+
               val isAnalyzing: Boolean = false,
+
               val error: String? = null,
-              val resultProfile: LearnerProfile? = null
+
+              val resultProfile:
+                  LearnerProfile? = null
           )
-          
-          class PlacementViewModel(app: Application) : AndroidViewModel(app) {
-          
-              private val repo = PlacementRepository(AppDatabase.getInstance(app))
-          
-              private val _state = MutableStateFlow(PlacementUiState())
-              val state: StateFlow<PlacementUiState> = _state
-          
-              private val maxQuestionsPerSection = 3
-          
-              fun setName(name: String) {
-                  _state.value = _state.value.copy(userName = name)
+
+
+          class PlacementViewModel(
+              app: Application
+          ) : AndroidViewModel(app) {
+
+              private val repo =
+                  PlacementRepository(
+                      AppDatabase.getInstance(app)
+                  )
+
+
+              private val _state =
+                  MutableStateFlow(
+                      PlacementUiState()
+                  )
+
+              val state:
+                  StateFlow<PlacementUiState> =
+                  _state
+
+
+              private val maxQuestionsPerSection =
+                  3
+
+
+              fun setName(
+                  name: String
+              ) {
+                  _state.value =
+                      _state.value.copy(
+                          userName = name
+                      )
               }
-          
-              fun currentQuestion(): McqQuestion? {
-                  val bank = bankFor(_state.value.section) ?: return null
-                  return bank.firstOrNull { it.level == _state.value.currentLevel }
-                      ?: bank.minByOrNull { kotlin.math.abs(it.level.order - _state.value.currentLevel.order) }
+
+
+              fun currentQuestion():
+                  McqQuestion? {
+
+                  val bank =
+                      bankFor(
+                          _state.value.section
+                      ) ?: return null
+
+                  return bank.firstOrNull {
+                      it.level ==
+                          _state.value.currentLevel
+                  }
+                      ?: bank.minByOrNull {
+                          kotlin.math.abs(
+                              it.level.order -
+                                  _state.value
+                                      .currentLevel
+                                      .order
+                          )
+                      }
               }
-          
-              private fun bankFor(section: TestSection): List<McqQuestion>? = when (section) {
-                  TestSection.GRAMMAR -> QuestionBank.grammar
-                  TestSection.VOCABULARY -> QuestionBank.vocabulary
-                  TestSection.READING -> QuestionBank.reading
-                  TestSection.LISTENING -> QuestionBank.listening
-                  else -> null
-              }
-          
-              /** Called after the user answers an MCQ question in an adaptive (deterministic) section. */
-              fun submitMcqAnswer(question: McqQuestion, chosenIndex: Int) {
-                  val correct = chosenIndex == question.correctIndex
+
+
+              private fun bankFor(
+                  section: TestSection
+              ): List<McqQuestion>? =
+
+                  when (section) {
+
+                      TestSection.GRAMMAR ->
+                          QuestionBank.grammar
+
+                      TestSection.VOCABULARY ->
+                          QuestionBank.vocabulary
+
+                      TestSection.READING ->
+                          QuestionBank.reading
+
+                      TestSection.LISTENING ->
+                          QuestionBank.listening
+
+                      else -> null
+                  }
+
+
+              fun submitMcqAnswer(
+                  question: McqQuestion,
+                  chosenIndex: Int
+              ) {
+
+                  val correct =
+                      chosenIndex ==
+                          question.correctIndex
+
                   viewModelScope.launch {
+
                       repo.recordAnswer(
                           PlacementAnswer(
-                              skill = _state.value.section.name.lowercase(),
-                              questionId = question.id,
-                              difficulty = question.level.name,
-                              userResponse = chosenIndex.toString(),
-                              isCorrect = correct
+
+                              skill =
+                                  _state.value
+                                      .section
+                                      .name
+                                      .lowercase(),
+
+                              questionId =
+                                  question.id,
+
+                              difficulty =
+                                  question.level.name,
+
+                              userResponse =
+                                  chosenIndex.toString(),
+
+                              isCorrect =
+                                  correct
                           )
                       )
                   }
-                  val nextLevel = ScoringEngine.nextLevel(_state.value.currentLevel, correct)
-                  val nextIndex = _state.value.questionIndexInSection + 1
-                  if (nextIndex >= maxQuestionsPerSection) {
+
+
+                  val nextLevel =
+                      ScoringEngine.nextLevel(
+                          _state.value.currentLevel,
+                          correct
+                      )
+
+
+                  val nextIndex =
+                      _state.value
+                          .questionIndexInSection + 1
+
+
+                  if (
+                      nextIndex >=
+                          maxQuestionsPerSection
+                  ) {
+
                       advanceSection()
+
                   } else {
-                      _state.value = _state.value.copy(currentLevel = nextLevel, questionIndexInSection = nextIndex)
+
+                      _state.value =
+                          _state.value.copy(
+                              currentLevel =
+                                  nextLevel,
+
+                              questionIndexInSection =
+                                  nextIndex,
+
+                              error = null
+                          )
                   }
               }
-          
-              /** Called for Writing/Speaking free-text (or transcript) submissions — scored by AI. */
-              fun submitAiScoredAnswer(skill: TestSection, text: String) {
+
+
+              fun submitAiScoredAnswer(
+                  skill: TestSection,
+                  text: String
+              ) {
+
                   viewModelScope.launch {
-                      _state.value = _state.value.copy(isAnalyzing = true, error = null)
+
+                      _state.value =
+                          _state.value.copy(
+                              isAnalyzing = true,
+                              error = null
+                          )
+
                       try {
-                          val score = repo.scoreWithAi(skill.name.lowercase(), _state.value.currentLevel, text)
+
+                          val score =
+                              repo.scoreWithAi(
+                                  skill.name.lowercase(),
+                                  _state.value.currentLevel,
+                                  text
+                              )
+
+
                           repo.recordAnswer(
+
                               PlacementAnswer(
-                                  skill = skill.name.lowercase(),
-                                  questionId = "${skill.name.lowercase()}_free_text",
-                                  difficulty = score.level,
-                                  userResponse = text,
+
+                                  skill =
+                                      skill.name
+                                          .lowercase(),
+
+                                  questionId =
+                                      "${skill.name.lowercase()}_free_text",
+
+                                  difficulty =
+                                      score.level,
+
+                                  userResponse =
+                                      text,
+
                                   isCorrect = null,
-                                  aiScoreJson = score.summary
+
+                                  aiScoreJson =
+                                      score.summary
                               )
                           )
-                          _state.value = _state.value.copy(isAnalyzing = false)
-                          advanceSection()
-                      } catch (e: Exception) {
-                          val detail = e.message?.takeIf { it.isNotBlank() } ?: e.toString()
-                          _state.value = _state.value.copy(isAnalyzing = false, error = "AI scoring failed: $detail")
-                      }
-                  }
-              }
-          
-              private fun advanceSection() {
-                  val order = listOf(
-                      TestSection.GRAMMAR, TestSection.VOCABULARY, TestSection.READING,
-                      TestSection.LISTENING, TestSection.WRITING, TestSection.SPEAKING, TestSection.DONE
-                  )
-                  val nextSection = order[order.indexOf(_state.value.section) + 1]
-                  _state.value = _state.value.copy(
-                      section = nextSection,
-                      currentLevel = CefrLevel.A2,
-                      questionIndexInSection = 0
-                  )
-                  if (nextSection == TestSection.DONE) finalizeProfile()
-              }
-          
-              private fun finalizeProfile() {
-                  viewModelScope.launch {
-                      _state.value = _state.value.copy(isAnalyzing = true)
-                      val answers = repo.getAllAnswers()
-          
-                      fun levelFor(skill: String): CefrLevel {
-                          val skillAnswers = answers.filter { it.skill == skill }
-                          return ScoringEngine.estimateSkillLevel(skillAnswers)
-                      }
-          
-                      // Writing/Speaking already carry an AI-assigned level string in `difficulty`.
-                      fun aiLevelFor(skill: String): CefrLevel =
-                          answers.filter { it.skill == skill }
-                              .mapNotNull { runCatching { CefrLevel.valueOf(it.difficulty) }.getOrNull() }
-                              .firstOrNull() ?: CefrLevel.A2
-          
-                      val grammar = levelFor("grammar")
-                      val vocabulary = levelFor("vocabulary")
-                      val reading = levelFor("reading")
-                      val listening = levelFor("listening")
-                      val writing = aiLevelFor("writing")
-                      val speaking = aiLevelFor("speaking")
-          
-                      val skillMap = mapOf(
-                          "Grammar" to grammar, "Vocabulary" to vocabulary, "Reading" to reading,
-                          "Listening" to listening, "Writing" to writing, "Speaking" to speaking
-                      )
-                      val overall = ScoringEngine.estimateOverallLevel(skillMap.values.toList())
-                      val (strengths, weaknesses) = ScoringEngine.strengthsAndWeaknesses(skillMap)
-          
-                      val profile = LearnerProfile(
-                          name = _state.value.userName.ifBlank { "Learner" },
-                          overallLevel = overall.name,
-                          grammarLevel = grammar.name,
-                          vocabularyLevel = vocabulary.name,
-                          readingLevel = reading.name,
-                          listeningLevel = listening.name,
-                          writingLevel = writing.name,
-                          speakingLevel = speaking.name,
-                          strengths = strengths.joinToString(","),
-                          weaknesses = weaknesses.joinToString(","),
-                          placementCompletedAt = System.currentTimeMillis()
-                      )
-                      repo.saveProfile(profile)
-                      _state.value = _state.value.copy(isAnalyzing = false, resultProfile = profile)
-                  }
-              }
-          }
-          
-          PROJFILE_9_EOF
-
-          mkdir -p "$(dirname 'app/src/main/java/com/englishmastery45/app/ui/screens/Screens.kt')"
-          cat > 'app/src/main/java/com/englishmastery45/app/ui/screens/Screens.kt' << 'PROJFILE_10_EOF'
-          package com.englishmastery45.app.ui.screens
-          
-          import androidx.compose.foundation.layout.*
-          import androidx.compose.foundation.text.KeyboardOptions
-          import androidx.compose.material3.*
-          import androidx.compose.runtime.*
-          import androidx.compose.ui.Alignment
-          import androidx.compose.ui.Modifier
-          import androidx.compose.ui.draw.clip
-          import androidx.compose.foundation.background
-          import androidx.compose.foundation.shape.RoundedCornerShape
-          import androidx.compose.ui.graphics.Color
-          import androidx.compose.ui.text.font.FontWeight
-          import androidx.compose.ui.unit.sp
-          import androidx.compose.ui.text.input.ImeAction
-          import androidx.compose.ui.unit.dp
-          import com.englishmastery45.app.data.McqQuestion
-          import com.englishmastery45.app.ui.PlacementUiState
-          import com.englishmastery45.app.ui.TestSection
-          
-          @Composable
-          fun SplashScreen(onFinished: () -> Unit) {
-              LaunchedEffect(Unit) {
-                  kotlinx.coroutines.delay(900)
-                  onFinished()
-              }
-              Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                      Box(
-                          modifier = Modifier
-                              .size(120.dp)
-                              .clip(RoundedCornerShape(28.dp))
-                              .background(Color(0xFF012169)),
-                          contentAlignment = Alignment.Center
-                      ) {
-                          Text(
-                              "E",
-                              color = Color.White,
-                              fontSize = 72.sp,
-                              fontWeight = FontWeight.ExtraBold
-                          )
-                      }
-                      Spacer(Modifier.height(18.dp))
-                      Text(
-                          "English Mastery 45",
-                          style = MaterialTheme.typography.headlineMedium,
-                          fontWeight = FontWeight.Bold
-                      )
-                      Spacer(Modifier.height(8.dp))
-                      Text(
-                          "Your personal English teacher 🇬🇧",
-                          style = MaterialTheme.typography.bodyMedium
-                      )
-                  }
-              }
-          }
-          
-          @Composable
-          fun OnboardingScreen(onContinue: (String) -> Unit) {
-              var name by remember { mutableStateOf("") }
-              Column(
-                  Modifier.fillMaxSize().padding(24.dp),
-                  verticalArrangement = Arrangement.Center
-              ) {
-                  Text("Let's discover your English level.", style = MaterialTheme.typography.headlineSmall)
-                  Spacer(Modifier.height(24.dp))
-                  OutlinedTextField(
-                      value = name,
-                      onValueChange = { name = it },
-                      label = { Text("What's your name?") },
-                      singleLine = true,
-                      keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                      modifier = Modifier.fillMaxWidth()
-                  )
-                  Spacer(Modifier.height(16.dp))
-                  Button(
-                      onClick = { onContinue(name.ifBlank { "Learner" }) },
-                      modifier = Modifier.fillMaxWidth()
-                  ) { Text("Start placement test") }
-              }
-          }
-          
-          @Composable
-          fun McqQuestionScreen(
-              sectionTitle: String,
-              question: McqQuestion,
-              onAnswer: (Int) -> Unit
-          ) {
-              Column(Modifier.fillMaxSize().padding(24.dp)) {
-                  Text(sectionTitle, style = MaterialTheme.typography.labelLarge)
-                  Spacer(Modifier.height(16.dp))
-                  question.passage?.let {
-                      Card(Modifier.fillMaxWidth()) {
-                          Text(it, Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
-                      }
-                      Spacer(Modifier.height(16.dp))
-                  }
-                  Text(question.prompt, style = MaterialTheme.typography.titleMedium)
-                  Spacer(Modifier.height(16.dp))
-                  question.options.forEachIndexed { index, option ->
-                      OutlinedButton(
-                          onClick = { onAnswer(index) },
-                          modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                      ) { Text(option) }
-                  }
-              }
-          }
-          
-          @Composable
-          fun FreeTextScreen(
-              sectionTitle: String,
-              prompt: String,
-              submitLabel: String,
-              isAnalyzing: Boolean,
-              error: String?,
-              onSubmit: (String) -> Unit
-          ) {
-              var text by remember { mutableStateOf("") }
-              Column(Modifier.fillMaxSize().padding(24.dp)) {
-                  Text(sectionTitle, style = MaterialTheme.typography.labelLarge)
-                  Spacer(Modifier.height(16.dp))
-                  Text(prompt, style = MaterialTheme.typography.titleMedium)
-                  Spacer(Modifier.height(16.dp))
-                  OutlinedTextField(
-                      value = text,
-                      onValueChange = { text = it },
-                      modifier = Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(min = 140.dp),
-                      label = { Text("Your answer") }
-                  )
-                  Spacer(Modifier.height(16.dp))
-                  error?.let {
-                      Text(it, color = MaterialTheme.colorScheme.error)
-                      Spacer(Modifier.height(8.dp))
-                  }
-                  Button(
-                      onClick = { onSubmit(text) },
-                      enabled = !isAnalyzing && text.isNotBlank(),
-                      modifier = Modifier.fillMaxWidth()
-                  ) {
-                      if (isAnalyzing) CircularProgressIndicator(Modifier.size(18.dp)) else Text(submitLabel)
-                  }
-              }
-          }
-          
-          @Composable
-          fun AnalyzingScreen() {
-              Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                      CircularProgressIndicator()
-                      Spacer(Modifier.height(16.dp))
-                      Text("Analyzing your level...")
-                  }
-              }
-          }
-          
-          @Composable
-          fun ResultsScreen(state: PlacementUiState, onRestart: () -> Unit) {
-              val profile = state.resultProfile
-              Column(Modifier.fillMaxSize().padding(24.dp)) {
-                  Text("Your Learner Profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                  Spacer(Modifier.height(8.dp))
-                  if (profile == null) {
-                      Text("No results yet.")
-                      return
-                  }
-                  Text("Estimated overall level: ${profile.overallLevel}", style = MaterialTheme.typography.titleLarge)
-                  Spacer(Modifier.height(16.dp))
-                  listOf(
-                      "Grammar" to profile.grammarLevel,
-                      "Vocabulary" to profile.vocabularyLevel,
-                      "Reading" to profile.readingLevel,
-                      "Listening" to profile.listeningLevel,
-                      "Writing" to profile.writingLevel,
-                      "Speaking" to profile.speakingLevel
-                  ).forEach { (label, level) ->
-                      Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                          Text(label)
-                          Text(level, fontWeight = FontWeight.Bold)
-                      }
-                  }
-                  Spacer(Modifier.height(16.dp))
-                  if (profile.strengths.isNotBlank()) {
-                      Text("🟢 Strengths: ${profile.strengths}")
-                  }
-                  if (profile.weaknesses.isNotBlank()) {
-                      Text("🟡 Needs improvement: ${profile.weaknesses}")
-                  }
-                  Spacer(Modifier.height(24.dp))
-                  Button(onClick = onRestart, modifier = Modifier.fillMaxWidth()) {
-                      Text("Retake placement test")
-                  }
-              }
-          }
-          
-          PROJFILE_10_EOF
-
-          mkdir -p "$(dirname 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml')"
-          cat > 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml' << 'PROJFILE_11_EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/icon_blue" />
-              <foreground android:drawable="@drawable/ic_launcher_foreground" />
-          </adaptive-icon>
-
-          PROJFILE_11_EOF
-
-          mkdir -p "$(dirname 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml')"
-          cat > 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml' << 'PROJFILE_12_EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/icon_blue" />
-              <foreground android:drawable="@drawable/ic_launcher_foreground" />
-          </adaptive-icon>
-
-          PROJFILE_12_EOF
-
-          mkdir -p "$(dirname 'app/src/main/res/drawable/ic_launcher_foreground.xml')"
-          cat > 'app/src/main/res/drawable/ic_launcher_foreground.xml' << 'PROJFILE_18_EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="108dp"
-              android:height="108dp"
-              android:viewportWidth="108"
-              android:viewportHeight="108">
-
-              <path
-                  android:fillColor="#FFFFFFFF"
-                  android:pathData="M12,24 L24,12 L96,84 L84,96 Z" />
-              <path
-                  android:fillColor="#FFFFFFFF"
-                  android:pathData="M84,12 L96,24 L24,96 L12,84 Z" />
-
-              <path
-                  android:fillColor="#FFE31B23"
-                  android:pathData="M18,18 L24,12 L96,84 L90,90 Z" />
-              <path
-                  android:fillColor="#FFE31B23"
-                  android:pathData="M90,18 L96,24 L24,96 L18,90 Z" />
-
-              <path
-                  android:fillColor="#FFFFFFFF"
-                  android:pathData="M31,27 L77,27 L77,39 L45,39 L45,47 L72,47 L72,59 L45,59 L45,69 L77,69 L77,81 L31,81 Z" />
-          </vector>
-
-          PROJFILE_18_EOF
-
-          mkdir -p "$(dirname 'app/src/main/res/values/colors.xml')"
-          cat > 'app/src/main/res/values/colors.xml' << 'PROJFILE_19_EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <

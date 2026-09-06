@@ -132,6 +132,8 @@ jobs:
               <application
                   android:allowBackup="true"
                   android:label="English Mastery 45"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher_round"
                   android:theme="@style/Theme.EnglishMastery45"
                   android:supportsRtl="true">
           
@@ -960,90 +962,86 @@ jobs:
           
           PROJFILE_10_EOF
 
-          mkdir -p "$(dirname 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml')"
-          cat > 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml' << 'PROJFILE_11_EOF'
+          mkdir -p "$(dirname 'app/src/main/res/drawable/ic_launcher_foreground.xml')"
+          cat > 'app/src/main/res/drawable/ic_launcher_foreground.xml' << 'PROJFILE_11_EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@android:color/holo_blue_dark" />
-              <foreground android:drawable="@android:color/white" />
-          </adaptive-icon>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+          
+              <!-- Left page of an open book -->
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M53,30 L20,38 L20,78 L53,86 Z" />
+          
+              <!-- Right page of an open book -->
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M55,30 L88,38 L88,78 L55,86 Z" />
+          
+              <!-- Spine shadow -->
+              <path
+                  android:fillColor="#D9CFEC"
+                  android:pathData="M53,30 L55,30 L55,86 L53,86 Z" />
+          
+              <!-- A couple of text lines on the left page -->
+              <path
+                  android:fillColor="#5B3E96"
+                  android:pathData="M27,48 L48,44 L48,47 L27,51 Z" />
+              <path
+                  android:fillColor="#5B3E96"
+                  android:pathData="M27,58 L48,54 L48,57 L27,61 Z" />
+          
+              <!-- A couple of text lines on the right page -->
+              <path
+                  android:fillColor="#5B3E96"
+                  android:pathData="M60,44 L81,48 L81,51 L60,47 Z" />
+              <path
+                  android:fillColor="#5B3E96"
+                  android:pathData="M60,54 L81,58 L81,61 L60,57 Z" />
+          
+          </vector>
           
           PROJFILE_11_EOF
 
-          mkdir -p "$(dirname 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml')"
-          cat > 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml' << 'PROJFILE_12_EOF'
+          mkdir -p "$(dirname 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml')"
+          cat > 'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml' << 'PROJFILE_12_EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@android:color/holo_blue_dark" />
-              <foreground android:drawable="@android:color/white" />
+              <background android:drawable="@color/ic_launcher_background" />
+              <foreground android:drawable="@drawable/ic_launcher_foreground" />
           </adaptive-icon>
           
           PROJFILE_12_EOF
 
-          mkdir -p "$(dirname 'app/src/main/res/values/strings.xml')"
-          cat > 'app/src/main/res/values/strings.xml' << 'PROJFILE_13_EOF'
-          <resources>
-              <string name="app_name">English Mastery 45</string>
-          </resources>
+          mkdir -p "$(dirname 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml')"
+          cat > 'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml' << 'PROJFILE_13_EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background" />
+              <foreground android:drawable="@drawable/ic_launcher_foreground" />
+          </adaptive-icon>
           
           PROJFILE_13_EOF
 
-          mkdir -p "$(dirname 'app/src/main/res/values/themes.xml')"
-          cat > 'app/src/main/res/values/themes.xml' << 'PROJFILE_14_EOF'
+          mkdir -p "$(dirname 'app/src/main/res/values/ic_launcher_colors.xml')"
+          cat > 'app/src/main/res/values/ic_launcher_colors.xml' << 'PROJFILE_14_EOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="Theme.EnglishMastery45" parent="android:Theme.Material.Light.NoActionBar" />
+              <color name="ic_launcher_background">#5B3E96</color>
           </resources>
           
           PROJFILE_14_EOF
 
-          mkdir -p "$(dirname 'build.gradle.kts')"
-          cat > 'build.gradle.kts' << 'PROJFILE_15_EOF'
-          plugins {
-              id("com.android.application") version "8.5.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-              id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24" apply false
-              id("com.google.devtools.ksp") version "1.9.24-1.0.20" apply false
-          }
+          mkdir -p "$(dirname 'app/src/main/res/values/strings.xml')"
+          cat > 'app/src/main/res/values/strings.xml' << 'PROJFILE_15_EOF'
+          <resources>
+              <string name="app_name">English Mastery 45</string>
+          </resources>
           
           PROJFILE_15_EOF
 
-          mkdir -p "$(dirname 'gradle.properties')"
-          cat > 'gradle.properties' << 'PROJFILE_16_EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          android.nonTransitiveRClass=true
-          kotlin.code.style=official
-          
-          PROJFILE_16_EOF
-
-          mkdir -p "$(dirname 'settings.gradle.kts')"
-          cat > 'settings.gradle.kts' << 'PROJFILE_17_EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "EnglishMastery45"
-          include(":app")
-          
-          PROJFILE_17_EOF
-
-      - name: Build debug APK
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: gradle assembleDebug --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: english-mastery-45-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          mkdir -p "$(dirname 'app/src/main/res/values/themes.xml')"
+     
